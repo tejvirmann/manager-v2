@@ -1,0 +1,13 @@
+{
+  "default": "ollama/gemma4:e4b",
+  "provider": "ollama",
+  "ollama": {
+    "baseURL": "http://localhost:11434/v1"
+  },
+  "allowed": [
+    "ollama/gemma4:e4b",
+    "ollama/qwen2.5:14b",
+    "ollama/qwen2.5-coder:7b",
+    "ollama/qwen2.5:7b"
+  ]
+}

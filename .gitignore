@@ -1,0 +1,41 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.local
+
+# ── Personal content ──────────────────────────────────────────────────────────
+# Notes and calendar stay local — remove these lines if you want git backup.
+notes/*
+!notes/.gitkeep
+
+# calendar/* is ignored for new files.
+# To also untrack the existing calendar.md from git history:
+#   git rm --cached calendar/calendar.md
+calendar/*
+!calendar/.gitkeep
+
+# ── Generated ─────────────────────────────────────────────────────────────────
+.cache/
+bin/
+
+# ── Generated harness configs (produced by ./manager setup-*) ─────────────────
+CLAUDE.md
+.mcp.json
+.cursor/
+.vscode/mcp.json
+.continue/
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+bot/venv/
+tools/node_modules/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+nohup.out

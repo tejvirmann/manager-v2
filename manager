@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# manager — harness-agnostic entry point for the personal AI assistant
+#
+# Usage:
+#   ./manager                    start default harness (opencode)
+#   ./manager opencode           start OpenCode TUI
+#   ./manager claude             start Claude Code CLI
+#   ./manager setup-cursor       write .cursor/mcp.json for Cursor
+#   ./manager setup-continue     write .continue/mcpServers/ for Continue
+#   ./manager setup-vscode       write .vscode/mcp.json for VS Code
+#   ./manager setup-all          write all file-based harness configs
+#   ./manager setup              interactive first-time config wizard
+#   ./manager index              rebuild notes search index
+#   ./manager bot                start Telegram bot
+#   ./manager help               show this message
+#
+# To add a new harness: add a transformer in scripts/generate.py and a case below.
+
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$DIR"
+
+# ── Load .env ─────────────────────────────────────────────────────────────────
+if [[ -f "$DIR/.env" ]]; then
+  set -a; source "$DIR/.env"; set +a
+fi
+
+# GitHub MCP Docker container inherits this from the host env
+export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_PAT:-}"
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+rebuild_index() {
+  python3 "$DIR/tools/build_index.py" "$DIR" "$DIR/.cache/notes-index.json" 2>/dev/null || true
+}
+
+require() {
+  command -v "$1" &>/dev/null || { echo "Error: '$1' not found. Run ./manager setup."; exit 1; }
+}
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+cmd="${1:-opencode}"
+
+case "$cmd" in
+
+  opencode|tui|"")
+    require opencode
+    require python3
+    echo "Building notes index..."
+    rebuild_index
+    echo "Loading skills from registry..."
+    # Dynamically build config with only enabled skills (frontmatter-gated).
+    # OPENCODE_CONFIG_CONTENT takes priority over opencode.jsonc.
+    export OPENCODE_CONFIG_CONTENT
+    OPENCODE_CONFIG_CONTENT="$(python3 "$DIR/scripts/generate.py" opencode)"
+    exec opencode
+    ;;
+
+  claude|claude-code)
+    require claude
+    require python3
+    echo "Building notes index..."
+    rebuild_index
+    echo "Writing .mcp.json from registry..."
+    python3 "$DIR/scripts/generate.py" claude
+    # Context: Claude Code reads CLAUDE.md automatically
+    [[ -f "$DIR/registry/context.md" ]] && cp "$DIR/registry/context.md" "$DIR/CLAUDE.md"
+    exec claude
+    ;;
+
+  setup-cursor)
+    echo "Writing .cursor/mcp.json from registry..."
+    python3 "$DIR/scripts/generate.py" cursor
+    echo "Add registry/context.md content to your Cursor rules (.cursorrules)."
+    ;;
+
+  setup-continue)
+    echo "Writing .continue/mcpServers/manager.json from registry..."
+    python3 "$DIR/scripts/generate.py" continue
+    echo "Add registry/context.md as a system message in ~/.continue/config.yaml."
+    ;;
+
+  setup-vscode)
+    echo "Writing .vscode/mcp.json from registry..."
+    python3 "$DIR/scripts/generate.py" vscode
+    ;;
+
+  setup-all)
+    echo "Generating all harness configs from registry..."
+    python3 "$DIR/scripts/generate.py" all
+    ;;
+
+  setup)
+    bash "$DIR/scripts/setup.sh"
+    ;;
+
+  index)
+    python3 "$DIR/tools/build_index.py" "$DIR" "$DIR/.cache/notes-index.json"
+    echo "Index written to .cache/notes-index.json"
+    ;;
+
+  bot)
+    if [[ -z "${TELEGRAM_BOT_TOKEN:-}" ]]; then
+      echo "TELEGRAM_BOT_TOKEN not set in .env — run ./manager setup"
+      exit 1
+    fi
+    cd "$DIR/bot"
+    [[ -d venv ]] || python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt -q
+    export NOTES_INDEX_PATH="$DIR/.cache/notes-index.json"
+    python3 telegram_bot.py
+    ;;
+
+  help|--help|-h)
+    grep "^#" "$0" | sed 's/^# \?//'
+    ;;
+
+  *)
+    echo "Unknown command: $cmd"
+    echo "Run: ./manager help"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,74 @@
+// opencode.jsonc — OpenCode harness config
+//
+// This file is read directly by OpenCode. Secrets use {env:VAR} interpolation
+// so nothing sensitive is hardcoded here.
+//
+// To change the system prompt:  edit registry/context.md
+// To add/remove MCP servers:   edit here AND registry/mcp-servers.json
+// To switch models:             change "model" below (see allowed list in registry/models.json)
+// To start:                     ./manager opencode   (or just: opencode)
+
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ── Model ──────────────────────────────────────────────────────────────────
+  // Swap to qwen2.5-coder:7b for heavy coding sessions, qwen2.5:7b for speed.
+  "model": "ollama/gemma4:e4b",
+
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "gemma4:e4b":         { "name": "Gemma 4 4B" },
+        "qwen2.5-coder:7b":   { "name": "Qwen 2.5 Coder 7B" },
+        "qwen2.5:7b":         { "name": "Qwen 2.5 7B" },
+        "qwen2.5:14b":        { "name": "Qwen 2.5 14B" }
+      }
+    }
+  },
+
+  // ── MCP Servers ────────────────────────────────────────────────────────────
+  // Also mirrored in registry/mcp-servers.json (standard format) for other harnesses.
+  // Set enabled: false to disable a server without removing it.
+  "mcp": {
+
+    "github": {
+      "type": "local",
+      // Binary downloaded by ./manager setup — no Docker needed
+      "command": ["./bin/github-mcp-server", "stdio"],
+      "environment": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PAT}",
+        "GITHUB_TOOLSETS": "repos,issues,pull_requests,projects"
+      },
+      "enabled": true
+    },
+
+    "filesystem": {
+      "type": "local",
+      "command": [
+        "npx", "-y", "@modelcontextprotocol/server-filesystem",
+        "./notes",
+        "./calendar",
+        "./.cache"
+      ],
+      "enabled": true
+    }
+
+  },
+
+  // ── Context / System Prompt ────────────────────────────────────────────────
+  // When started via ./manager, OPENCODE_CONFIG_CONTENT overrides this and
+  // only loads skills where enabled: true in their frontmatter.
+  //
+  // This glob is the static fallback for running `opencode` directly.
+  // To add a skill: drop a .md file into registry/skills/
+  // To disable a skill: set enabled: false in its frontmatter
+  "instructions": [
+    "registry/context.md",
+    "registry/skills/*.md",
+    "registry/rules/*.md"
+  ]
+}

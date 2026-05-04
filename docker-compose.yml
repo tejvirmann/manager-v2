@@ -1,0 +1,14 @@
+services:
+  telegram-bot:
+    build: ./bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # On macOS Docker Desktop, host.docker.internal reaches the host machine.
+      # This lets the bot call Ollama running on your Mac (not inside Docker).
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - NOTES_INDEX_PATH=/cache/notes-index.json
+    volumes:
+      - ./.cache:/cache:ro
+      - ./notes:/notes:ro
+      - ./calendar:/calendar:ro
