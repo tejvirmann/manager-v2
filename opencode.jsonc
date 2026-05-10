@@ -12,8 +12,9 @@
   "$schema": "https://opencode.ai/config.json",
 
   // ── Model ──────────────────────────────────────────────────────────────────
-  // Swap to qwen2.5-coder:7b for heavy coding sessions, qwen2.5:7b for speed.
-  "model": "ollama/gemma4:e4b",
+  // qwen3:8b is the most reliable for MCP tool use locally.
+  // Switch to anthropic/claude-sonnet-4-5 for best results (requires ANTHROPIC_API_KEY).
+  "model": "ollama/qwen3:8b",
 
   "provider": {
     "ollama": {
@@ -22,10 +23,19 @@
         "baseURL": "http://localhost:11434/v1"
       },
       "models": {
-        "gemma4:e4b":         { "name": "Gemma 4 4B" },
-        "qwen2.5-coder:7b":   { "name": "Qwen 2.5 Coder 7B" },
-        "qwen2.5:7b":         { "name": "Qwen 2.5 7B" },
-        "qwen2.5:14b":        { "name": "Qwen 2.5 14B" }
+        "qwen3:8b":           { "name": "Qwen3 8B (default — best local tool use)" },
+        "qwen2.5-coder:7b":   { "name": "Qwen 2.5 Coder 7B (coding)" },
+        "qwen2.5:7b":         { "name": "Qwen 2.5 7B (fast)" },
+        "gemma4:e4b":         { "name": "Gemma 4 4B" }
+      }
+    },
+    // ── Claude via Anthropic API (optional) ───────────────────────────────
+    // Set ANTHROPIC_API_KEY in .env to unlock these.
+    // OpenCode picks up the key automatically from the environment.
+    "anthropic": {
+      "models": {
+        "claude-sonnet-4-5":  { "name": "Claude Sonnet 4.5 (best overall)" },
+        "claude-haiku-4-5":   { "name": "Claude Haiku 4.5 (fast + cheap)" }
       }
     }
   },

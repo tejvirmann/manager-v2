@@ -12,6 +12,8 @@
 #   ./manager setup              interactive first-time config wizard
 #   ./manager index              rebuild notes search index
 #   ./manager bot                start Telegram bot
+#   ./manager crons              sync registry/crons.md to macOS launchd
+#   ./manager briefing           send Telegram briefing now (also called by cron)
 #   ./manager help               show this message
 #
 # To add a new harness: add a transformer in scripts/generate.py and a case below.
@@ -28,6 +30,7 @@ fi
 
 # GitHub MCP Docker container inherits this from the host env
 export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_PAT:-}"
+export MANAGER_DIR="$DIR"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 rebuild_index() {
@@ -110,6 +113,47 @@ case "$cmd" in
     pip install -r requirements.txt -q
     export NOTES_INDEX_PATH="$DIR/.cache/notes-index.json"
     python3 telegram_bot.py
+    ;;
+
+  crons)
+    subcmd="${2:-status}"
+    case "$subcmd" in
+      sync)
+        bash "$DIR/scripts/crons.sh"
+        ;;
+      logs)
+        python3 "$DIR/scripts/crons_ui.py" logs "${3:-}"
+        ;;
+      *)
+        python3 "$DIR/scripts/crons_ui.py" status
+        ;;
+    esac
+    ;;
+
+  briefing)
+    # Send a Telegram briefing (called by cron or manually)
+    if [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TELEGRAM_ALLOWED_USER_ID:-}" ]]; then
+      echo "Telegram not configured in .env"
+      exit 1
+    fi
+    rebuild_index
+    python3 - <<'PYEOF'
+import json, os, requests
+from pathlib import Path
+DIR = Path(os.environ.get("MANAGER_DIR", Path(__file__).parent if "__file__" in dir() else Path(".")))
+index_path = Path(os.environ.get("NOTES_INDEX_PATH", ".cache/notes-index.json"))
+token = os.environ["TELEGRAM_BOT_TOKEN"]
+uid = os.environ["TELEGRAM_ALLOWED_USER_ID"]
+model = os.environ.get("TELEGRAM_MODEL", "qwen3:8b")
+ollama = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+notes = json.loads(index_path.read_text()) if index_path.exists() else []
+r = requests.post(f"{ollama}/api/chat", json={"model": model, "stream": False, "messages": [
+    {"role": "system", "content": "You are a personal assistant. Give a concise daily briefing."},
+    {"role": "user", "content": f"Morning briefing. Notes index: {json.dumps(notes[:10])}"}
+]}, timeout=60)
+msg = r.json()["message"]["content"] if r.ok else "Briefing failed."
+requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": uid, "text": msg[:4000]})
+PYEOF
     ;;
 
   help|--help|-h)
